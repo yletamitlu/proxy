@@ -1,10 +1,10 @@
 package usecase
 
 import (
+	"github.com/sirupsen/logrus"
 	hs "github.com/yletamitlu/proxy/internal/https"
 	"github.com/yletamitlu/proxy/internal/proxy"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -23,7 +23,7 @@ func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedH
 	proxyResponse, err := pu.DoHttpRequest(interceptedHttpRequest)
 
 	if err != nil {
-		log.Fatal(err)
+		logrus.Info(err)
 	}
 
 	var headers string
@@ -36,7 +36,7 @@ func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedH
 	_, err = io.Copy(writer, io.MultiReader(strings.NewReader(headers + "\n"), proxyResponse.Body))
 
 	if err != nil {
-		log.Fatal(err)
+		logrus.Info(err)
 	}
 
 	defer proxyResponse.Body.Close()

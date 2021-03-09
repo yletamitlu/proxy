@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"errors"
-	"log"
 	"math/rand"
 	"net"
 	"net/http"
@@ -76,7 +75,6 @@ func (hs *HttpsService) generateCertificate() (tls.Certificate, error) {
 
 		_, err := genCommand.CombinedOutput()
 		if err != nil {
-			log.Fatal(err)
 			return tls.Certificate{}, err
 		}
 	}

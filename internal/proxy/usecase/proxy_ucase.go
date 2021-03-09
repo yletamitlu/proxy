@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	hs "github.com/yletamitlu/proxy/internal/https"
 	"github.com/yletamitlu/proxy/internal/proxy"
 	"io"
 	"log"
@@ -39,6 +40,16 @@ func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedH
 	}
 
 	defer proxyResponse.Body.Close()
+	return nil
+}
+
+func (pu *ProxyUcase) HandleHttpsRequest(writer http.ResponseWriter, interceptedHttpRequest *http.Request) error {
+	httpsService := hs.NewHttpsService(writer, interceptedHttpRequest)
+
+	err := httpsService.ProxyHttpsRequest()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

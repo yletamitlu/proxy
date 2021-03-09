@@ -25,6 +25,9 @@ func (pd *ProxyDelivery) HandleRequest(writer http.ResponseWriter, request *http
 			log.Fatal(err)
 		}
 	} else {
-
+		err := pd.proxyUcase.HandleHttpsRequest(writer, request)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }

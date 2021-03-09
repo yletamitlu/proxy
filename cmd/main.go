@@ -1,15 +1,19 @@
 package main
 
 import (
-	"fmt"
+	_ "github.com/jackc/pgx/stdlib"
 	"github.com/jmoiron/sqlx"
+	proxyDelivery "github.com/yletamitlu/proxy/internal/proxy/delivery"
+	proxyRepos "github.com/yletamitlu/proxy/internal/proxy/repository"
+	proxyUcase "github.com/yletamitlu/proxy/internal/proxy/usecase"
 	"log"
 	"net/http"
-	"github.com/yletamitlu/internal/proxy/repository"
+	"os"
 )
 
 func main() {
-	conn, err := sqlx.Connect("pgx", "postgres://proxyuser:techdb@localhost:5432/proxydb")
+	conn, err := sqlx.Connect("pgx",
+		"postgres://" + os.Getenv("DB_USER") + ":techdb@localhost:5432/" + os.Getenv("DB_NAME"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -23,12 +27,16 @@ func main() {
 
 	defer conn.Close()
 
-	proxyR := proxyRepos.NewUserRepository(conn)
+	proxyR := proxyRepos.NewProxyRepos(conn)
+	proxyU := proxyUcase.NewProxyUcase(proxyR)
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("Server started...")
-	})
+	proxyD := proxyDelivery.NewProxyDelivery(proxyU)
 
-	http.ListenAndServe(":80", nil)
+	server := &http.Server{
+		Addr: ": " + os.Getenv("PROXY_PORT"),
+		Handler: http.HandlerFunc(proxyD.HandleRequest),
+	}
+
+	log.Fatal(server.ListenAndServe())
+
 }
-

@@ -1,6 +1,8 @@
 package proxy
 
-import "github.com/yletamitlu/proxy/internal/models"
+import (
+	"github.com/yletamitlu/proxy/internal/models"
+)
 
 type ProxyRepository interface {
 	InsertInto(request *models.Request) error

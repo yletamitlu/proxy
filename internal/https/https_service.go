@@ -17,7 +17,7 @@ import (
 type HttpsService struct {
 	proxyWriter             http.ResponseWriter
 	interceptedHttpsRequest *http.Request
-	proxyHttpsRequest       *http.Request
+	HttpsRequest       *http.Request
 	scheme                  string
 	config                  *tls.Config
 }
@@ -129,7 +129,7 @@ func (hs *HttpsService) initializeTCPClient(hijackedConn net.Conn) (*tls.Conn, e
 		return nil, err
 	}
 
-	hs.proxyHttpsRequest = TCPClientRequest
+	hs.HttpsRequest = TCPClientRequest
 
 	return TCPClientConn, nil
 }
@@ -144,20 +144,37 @@ func (hs *HttpsService) initializeTCPServer() (*tls.Conn, error) {
 }
 
 func (hs *HttpsService) doHttpsRequest(TCPClientConn *tls.Conn, TCPServerConn *tls.Conn) error {
-	rawReq, err := httputil.DumpRequest(hs.proxyHttpsRequest, true)
+	rawReq, err := httputil.DumpRequest(hs.HttpsRequest, true)
 	_, err = TCPServerConn.Write(rawReq)
 	if err != nil {
 		return err
 	}
 
 	serverReader := bufio.NewReader(TCPServerConn)
-	TCPServerResponse, err := http.ReadResponse(serverReader, hs.proxyHttpsRequest)
+	TCPServerResponse, err := http.ReadResponse(serverReader, hs.HttpsRequest)
 	if err != nil {
 		return err
 	}
 
-	rawResp, err := httputil.DumpResponse(TCPServerResponse, true)
-	_, err = TCPClientConn.Write(rawResp)
+	respBody, err := httputil.DumpResponse(TCPServerResponse, true)
+	if err != nil {
+		return err
+	}
+
+	body := string(respBody)
+
+	var headers string
+	for header, values := range TCPServerResponse.Header {
+		for _, value := range values {
+			headers += header  + ": " + value + "\n"
+		}
+	}
+
+	respStr := headers + body
+
+	respByteArray := []byte(respStr)
+
+	_, err = TCPClientConn.Write(respByteArray)
 	if err != nil {
 		return err
 	}

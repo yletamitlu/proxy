@@ -1,9 +1,9 @@
 package models
 
 type Request struct {
-	Id       int
+	Id       int64
 	Method   string
-	Protocol string
+	Scheme string
 	Host     string
 	Path     string
 	Headers  map[string][]string

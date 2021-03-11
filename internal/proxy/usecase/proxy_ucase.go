@@ -3,8 +3,10 @@ package usecase
 import (
 	"github.com/sirupsen/logrus"
 	hs "github.com/yletamitlu/proxy/internal/https"
+	"github.com/yletamitlu/proxy/internal/models"
 	"github.com/yletamitlu/proxy/internal/proxy"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -29,11 +31,11 @@ func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedH
 	var headers string
 	for header, values := range proxyResponse.Header {
 		for _, value := range values {
-			headers += header  + ": " + value + "\n"
+			headers += header + ": " + value + "\n"
 		}
 	}
 
-	_, err = io.Copy(writer, io.MultiReader(strings.NewReader(headers + "\n"), proxyResponse.Body))
+	_, err = io.Copy(writer, io.MultiReader(strings.NewReader(headers+"\n"), proxyResponse.Body))
 
 	if err != nil {
 		logrus.Info(err)
@@ -50,6 +52,12 @@ func (pu *ProxyUcase) HandleHttpsRequest(writer http.ResponseWriter, intercepted
 	if err != nil {
 		return err
 	}
+
+	err = pu.SaveReqToDB(httpsService.HttpsRequest, "https")
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -73,4 +81,36 @@ func (pu *ProxyUcase) DoHttpRequest(HttpRequest *http.Request) (*http.Response, 
 	}
 
 	return proxyResponse, nil
+}
+
+func (pu *ProxyUcase) SaveReqToDB(request *http.Request, scheme string) error {
+	bodyBytes, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		return err
+	}
+
+	req := &models.Request{
+		Method:  request.Method,
+		Scheme:  scheme,
+		Host:    request.Host,
+		Path:    request.URL.Path,
+		Headers: request.Header,
+		Body:    string(bodyBytes),
+	}
+
+	err = pu.proxyRepo.InsertInto(req)
+	if err != nil {
+		return err
+	}
+
+	logrus.Info("RequestId: ", req.Id)
+
+	return nil
+}
+
+func (pu *ProxyUcase) GetRequest(id int) (*models.Request, error) {
+	return pu.proxyRepo.GetRequest(id)
+}
+func (pu *ProxyUcase) GetAllRequests() ([]*models.Request, error) {
+	return pu.proxyRepo.GetAllRequests()
 }

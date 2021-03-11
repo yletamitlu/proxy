@@ -6,6 +6,6 @@ import (
 
 type ProxyRepository interface {
 	InsertInto(request *models.Request) error
-	GetRequest(id int) (*models.Request, error)
+	GetRequest(id int64) (*models.Request, error)
 	GetAllRequests() ([]*models.Request, error)
 }

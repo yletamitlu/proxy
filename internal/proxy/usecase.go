@@ -11,6 +11,6 @@ type ProxyUsecase interface {
 	DoHttpRequest(httpRequest *http.Request) (*http.Response, error)
 
 	SaveReqToDB(request *http.Request, scheme string) error
-	GetRequest(id int) (*models.Request, error)
+	GetRequest(id int64) (*models.Request, error)
 	GetAllRequests() ([]*models.Request, error)
 }

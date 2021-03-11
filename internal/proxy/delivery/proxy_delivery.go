@@ -1,9 +1,8 @@
 package delivery
 
 import (
-	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"github.com/yletamitlu/proxy/internal/models"
 	"github.com/yletamitlu/proxy/internal/proxy"
 	"io"
 	"net/http"
@@ -41,7 +40,6 @@ func (pd *ProxyDelivery) HandleRequest(writer http.ResponseWriter, request *http
 }
 
 func (pd *ProxyDelivery) GetAllRequestsHandler(writer http.ResponseWriter, request *http.Request) {
-	var requests []*models.Request
 	requests, err := pd.proxyUcase.GetAllRequests()
 	if err != nil {
 		logrus.Error(err)
@@ -54,13 +52,24 @@ func (pd *ProxyDelivery) GetAllRequestsHandler(writer http.ResponseWriter, reque
 			"\nBody: " + request.Body + "\n"
 	}
 	_, err = io.Copy(writer, strings.NewReader(result))
-
 	if err != nil {
 		logrus.Info(err)
 	}
-
 }
 
 func (pd *ProxyDelivery) GetRequestHandler(writer http.ResponseWriter, request *http.Request) {
-	fmt.Print("GetRequestHandler")
+	id, err := strconv.ParseInt(mux.Vars(request)["id"], 10, 32)
+	foundReq, err := pd.proxyUcase.GetRequest(id)
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	result := "Id: " + strconv.FormatInt(foundReq.Id, 16)  + "\nMethod: " + foundReq.Method +
+		"\nScheme: " + foundReq.Scheme + "\nPath: " + foundReq.Path + "\nHost: " + foundReq.Host +
+		"\nBody: " + foundReq.Body + "\n"
+
+	_, err = io.Copy(writer, strings.NewReader(result))
+	if err != nil {
+		logrus.Info(err)
+	}
 }

@@ -34,33 +34,50 @@ func (pr *ProxyRepos) InsertInto(request *models.Request) error {
 	return nil
 }
 
-func (pr *ProxyRepos) GetRequest(id int) (*models.Request, error) {
-	req := &models.Request{}
-
-	if err := pr.conn.Get(req,
-		`SELECT * from requests where id = $1`, id);
-		err != nil {
+func (pr *ProxyRepos) GetRequest(id int64) (*models.Request, error) {
+	rows, err := pr.conn.Queryx(`SELECT * from requests where id = $1`, id)
+	if err != nil {
 		return nil, err
 	}
 
-	return req, nil
+	requests, err := pr.scanRequests(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(requests) == 0 {
+		return nil, nil
+	}
+
+	return requests[0], nil
 }
 func (pr *ProxyRepos) GetAllRequests() ([]*models.Request, error) {
-	var requests []*models.Request
-
 	rows, err := pr.conn.Queryx(`SELECT * from requests`)
 	if err != nil {
 		return nil, err
 	}
 
+	requests, err := pr.scanRequests(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return requests, nil
+}
+
+func (pr *ProxyRepos) scanRequests(rows *sqlx.Rows) ([]*models.Request, error) {
+	var requests []*models.Request
 	for rows.Next() {
 		reqMap := make(map[string]interface{})
-		err = rows.MapScan(reqMap)
+		err := rows.MapScan(reqMap)
+		if err != nil {
+			return nil, err
+		}
 
 		headersRaw := reqMap["headers"].([]byte)
 
 		var headers map[string][]string
-		err := json.Unmarshal(headersRaw, &headers)
+		err = json.Unmarshal(headersRaw, &headers)
 		if err != nil {
 			return nil, err
 		}

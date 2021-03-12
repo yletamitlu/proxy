@@ -5,7 +5,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yletamitlu/proxy/internal/proxy"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -72,4 +74,24 @@ func (pd *ProxyDelivery) GetRequestHandler(writer http.ResponseWriter, request *
 	if err != nil {
 		logrus.Info(err)
 	}
+}
+
+func (pd *ProxyDelivery) RepeatRequestHandler(writer http.ResponseWriter, request *http.Request) {
+	id, err := strconv.ParseInt(mux.Vars(request)["id"], 10, 32)
+	foundReq, err := pd.proxyUcase.GetRequest(id)
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	pd.HandleRequest(writer, &http.Request{
+		Method: foundReq.Method,
+		URL: &url.URL{
+			Scheme: foundReq.Scheme,
+			Host:   foundReq.Host,
+			Path:   foundReq.Path,
+		},
+		Header: foundReq.Headers,
+		Body:   ioutil.NopCloser(strings.NewReader(foundReq.Body)),
+		Host:   request.Host,
+	})
 }

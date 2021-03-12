@@ -111,6 +111,7 @@ func (pu *ProxyUcase) SaveReqToDB(request *http.Request, scheme string) error {
 func (pu *ProxyUcase) GetRequest(id int64) (*models.Request, error) {
 	return pu.proxyRepo.GetRequest(id)
 }
+
 func (pu *ProxyUcase) GetAllRequests() ([]*models.Request, error) {
 	return pu.proxyRepo.GetAllRequests()
 }

@@ -5,6 +5,7 @@ import (
 	hs "github.com/yletamitlu/proxy/internal/https"
 	"github.com/yletamitlu/proxy/internal/models"
 	"github.com/yletamitlu/proxy/internal/proxy"
+	"github.com/yletamitlu/proxy/internal/utils"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -28,14 +29,13 @@ func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedH
 		logrus.Info(err)
 	}
 
-	var headers string
-	for header, values := range proxyResponse.Header {
-		for _, value := range values {
-			headers += header + ": " + value + "\n"
-		}
+	decodedResponse, err := utils.DecodeResponse(proxyResponse)
+	if err != nil {
+		return err
 	}
 
-	_, err = io.Copy(writer, io.MultiReader(strings.NewReader(headers+"\n"), proxyResponse.Body))
+	responseStr := string(decodedResponse)
+	_, err = io.Copy(writer, strings.NewReader(responseStr))
 
 	if err != nil {
 		logrus.Info(err)

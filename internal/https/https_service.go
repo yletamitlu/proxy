@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"errors"
+	"github.com/yletamitlu/proxy/internal/utils"
 	"math/rand"
 	"net"
 	"net/http"
@@ -156,25 +157,11 @@ func (hs *HttpsService) doHttpsRequest(TCPClientConn *tls.Conn, TCPServerConn *t
 		return err
 	}
 
-	respBody, err := httputil.DumpResponse(TCPServerResponse, true)
+	decodedResponse, err := utils.DecodeResponse(TCPServerResponse)
 	if err != nil {
 		return err
 	}
-
-	body := string(respBody)
-
-	var headers string
-	for header, values := range TCPServerResponse.Header {
-		for _, value := range values {
-			headers += header  + ": " + value + "\n"
-		}
-	}
-
-	respStr := headers + body
-
-	respByteArray := []byte(respStr)
-
-	_, err = TCPClientConn.Write(respByteArray)
+	_, err = TCPClientConn.Write(decodedResponse)
 	if err != nil {
 		return err
 	}

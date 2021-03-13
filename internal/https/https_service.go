@@ -18,17 +18,23 @@ import (
 type HttpsService struct {
 	proxyWriter             http.ResponseWriter
 	interceptedHttpsRequest *http.Request
-	HttpsRequest       *http.Request
+	HttpsRequest            *http.Request
 	scheme                  string
 	config                  *tls.Config
 }
 
 func NewHttpsService(writer http.ResponseWriter, interceptedHttpsRequest *http.Request) *HttpsService {
 	requestedUrl, _ := url.Parse(interceptedHttpsRequest.RequestURI)
+	var scheme string
+	if requestedUrl.Scheme == "" {
+		scheme = interceptedHttpsRequest.URL.Host
+	} else {
+		scheme = requestedUrl.Scheme
+	}
 	return &HttpsService{
 		proxyWriter:             writer,
 		interceptedHttpsRequest: interceptedHttpsRequest,
-		scheme:                  requestedUrl.Scheme,
+		scheme:                  scheme,
 	}
 }
 

@@ -2,7 +2,6 @@ package utils
 
 import (
 	"compress/gzip"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,8 +15,6 @@ func DecodeResponse(response *http.Response) ([]byte, error) {
 	default:
 		body = response.Body
 	}
-
-	fmt.Print()
 
 	bodyByte, err := ioutil.ReadAll(body)
 	if err != nil {

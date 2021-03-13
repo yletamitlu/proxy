@@ -6,10 +6,8 @@ import (
 	"github.com/yletamitlu/proxy/internal/models"
 	"github.com/yletamitlu/proxy/internal/proxy"
 	"github.com/yletamitlu/proxy/internal/utils"
-	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
 )
 
 type ProxyUcase struct {
@@ -22,7 +20,7 @@ func NewProxyUcase(repos proxy.ProxyRepository) proxy.ProxyUsecase {
 	}
 }
 
-func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedHttpRequest *http.Request) error {
+func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedHttpRequest *http.Request) (string, error) {
 	proxyResponse, err := pu.DoHttpRequest(interceptedHttpRequest)
 
 	if err != nil {
@@ -31,21 +29,14 @@ func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedH
 
 	decodedResponse, err := utils.DecodeResponse(proxyResponse)
 	if err != nil {
-		return err
-	}
-
-	responseStr := string(decodedResponse)
-	_, err = io.Copy(writer, strings.NewReader(responseStr))
-
-	if err != nil {
-		logrus.Info(err)
+		return "", err
 	}
 
 	defer proxyResponse.Body.Close()
-	return nil
+	return string(decodedResponse), nil
 }
 
-func (pu *ProxyUcase) HandleHttpsRequest(writer http.ResponseWriter, interceptedHttpRequest *http.Request) error {
+func (pu *ProxyUcase) HandleHttpsRequest(writer http.ResponseWriter, interceptedHttpRequest *http.Request, needSave bool) error {
 	httpsService := hs.NewHttpsService(writer, interceptedHttpRequest)
 
 	err := httpsService.ProxyHttpsRequest()
@@ -53,9 +44,11 @@ func (pu *ProxyUcase) HandleHttpsRequest(writer http.ResponseWriter, intercepted
 		return err
 	}
 
-	err = pu.SaveReqToDB(httpsService.HttpsRequest, "https")
-	if err != nil {
-		return err
+	if needSave {
+		err = pu.SaveReqToDB(httpsService.HttpsRequest, "https")
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

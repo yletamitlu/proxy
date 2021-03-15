@@ -14,7 +14,7 @@ import (
 
 func main() {
 	conn, err := sqlx.Connect("pgx",
-		"postgres://" + os.Getenv("DB_USER") + ":techdb@localhost:5432/" + os.Getenv("DB_NAME"))
+		"postgres://" + os.Getenv("DB_USER") + ":proxyuser@localhost:5432/" + os.Getenv("DB_NAME"))
 	if err != nil {
 		logrus.Info(err)
 	}
@@ -46,6 +46,7 @@ func main() {
 	router.HandleFunc("/requests", proxyD.GetAllRequestsHandler)
 	router.HandleFunc("/requests/{id:[0-9]+}", proxyD.GetRequestHandler)
 	router.HandleFunc("/repeat/{id:[0-9]+}", proxyD.RepeatRequestHandler)
+	router.HandleFunc("/scan/{id:[0-9]+}", proxyD.ScanRequestHandler)
 	http.Handle("/", router)
 	logrus.Info(http.ListenAndServe(":" + os.Getenv("REPEATER_PORT"), nil))
 }

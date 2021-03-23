@@ -6,8 +6,10 @@ import (
 	"github.com/yletamitlu/proxy/internal/models"
 	"github.com/yletamitlu/proxy/internal/proxy"
 	"github.com/yletamitlu/proxy/internal/utils"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 type ProxyUcase struct {
@@ -22,7 +24,16 @@ func NewProxyUcase(repos proxy.ProxyRepository) proxy.ProxyUsecase {
 
 func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedHttpRequest *http.Request) (string, error) {
 	proxyResponse, err := pu.DoHttpRequest(interceptedHttpRequest)
-
+	if err != nil {
+		logrus.Info(err)
+	}
+	for header, values := range proxyResponse.Header {
+		for _, value := range values {
+			writer.Header().Add(header, value)
+		}
+	}
+	writer.WriteHeader(proxyResponse.StatusCode)
+	_, err = io.Copy(writer, proxyResponse.Body)
 	if err != nil {
 		logrus.Info(err)
 	}
@@ -30,6 +41,11 @@ func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedH
 	decodedResponse, err := utils.DecodeResponse(proxyResponse)
 	if err != nil {
 		return "", err
+	}
+
+	_, err = io.Copy(writer, strings.NewReader(string(decodedResponse)))
+	if err != nil {
+		logrus.Info(err)
 	}
 
 	defer proxyResponse.Body.Close()
@@ -62,13 +78,7 @@ func (pu *ProxyUcase) DoHttpRequest(HttpRequest *http.Request) (*http.Response, 
 
 	proxyRequest.Header = HttpRequest.Header
 
-	proxyClient := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	proxyResponse, err := proxyClient.Do(proxyRequest)
+	proxyResponse, err := http.DefaultTransport.RoundTrip(proxyRequest)
 	if err != nil {
 		return nil, err
 	}

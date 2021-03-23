@@ -9,9 +9,14 @@ import (
 
 func DecodeResponse(response *http.Response) ([]byte, error) {
 	var body io.ReadCloser
+
 	switch response.Header.Get("Content-Encoding") {
 	case "gzip":
-		body, _ = gzip.NewReader(response.Body)
+		var err error
+		body, err = gzip.NewReader(response.Body)
+		if err != nil {
+			body = response.Body
+		}
 	default:
 		body = response.Body
 	}
@@ -23,21 +28,9 @@ func DecodeResponse(response *http.Response) ([]byte, error) {
 
 	lineBreak := []byte("\n")
 	bodyByte = append(bodyByte, lineBreak...)
-
-	var headers string
-	for header, values := range response.Header {
-		for _, value := range values {
-			headers += header  + ": " + value + "\n"
-		}
-	}
-
-	status := response.Status + "\n"
-	proto := response.Proto + "\n"
-	headers = status + proto + headers
-
-	headersByteArray := []byte(headers)
+	bodyByte = bodyByte[0:500]
 
 	defer body.Close()
 
-	return append(headersByteArray, bodyByte...), nil
+	return bodyByte, nil
 }

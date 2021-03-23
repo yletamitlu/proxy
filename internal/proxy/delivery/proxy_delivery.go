@@ -38,13 +38,7 @@ func (pd *ProxyDelivery) HandleRequest(writer http.ResponseWriter, request *http
 			}
 		}
 
-		responseStr, err := pd.proxyUcase.HandleHttpRequest(writer, request)
-		if err != nil {
-			logrus.Error(err)
-		}
-
-		_, err = io.Copy(writer, strings.NewReader(responseStr))
-
+		_, err := pd.proxyUcase.HandleHttpRequest(writer, request)
 		if err != nil {
 			logrus.Info(err)
 		}

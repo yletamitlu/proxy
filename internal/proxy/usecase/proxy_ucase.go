@@ -53,20 +53,12 @@ func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedH
 }
 
 func (pu *ProxyUcase) HandleHttpsRequest(writer http.ResponseWriter, interceptedHttpRequest *http.Request, needSave bool) error {
-	httpsService := hs.NewHttpsService(writer, interceptedHttpRequest)
+	httpsService := hs.NewHttpsService(writer, interceptedHttpRequest, pu.proxyRepo)
 
 	err := httpsService.ProxyHttpsRequest()
 	if err != nil {
 		return err
 	}
-
-	if needSave {
-		err = pu.SaveReqToDB(httpsService.HttpsRequest, "https")
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

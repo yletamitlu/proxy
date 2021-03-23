@@ -2,9 +2,14 @@ package https
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"errors"
-	"github.com/yletamitlu/proxy/internal/utils"
+	"github.com/sirupsen/logrus"
+	"github.com/yletamitlu/proxy/internal/models"
+	"github.com/yletamitlu/proxy/internal/proxy"
+	"io"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -13,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 )
 
 type HttpsService struct {
@@ -21,9 +27,10 @@ type HttpsService struct {
 	HttpsRequest            *http.Request
 	scheme                  string
 	config                  *tls.Config
+	crutch                  proxy.ProxyRepository
 }
 
-func NewHttpsService(writer http.ResponseWriter, interceptedHttpsRequest *http.Request) *HttpsService {
+func NewHttpsService(writer http.ResponseWriter, interceptedHttpsRequest *http.Request, proxyRepo proxy.ProxyRepository) *HttpsService {
 	requestedUrl, _ := url.Parse(interceptedHttpsRequest.RequestURI)
 	var scheme string
 	if requestedUrl.Scheme == "" {
@@ -35,6 +42,7 @@ func NewHttpsService(writer http.ResponseWriter, interceptedHttpsRequest *http.R
 		proxyWriter:             writer,
 		interceptedHttpsRequest: interceptedHttpsRequest,
 		scheme:                  scheme,
+		crutch:                  proxyRepo,
 	}
 }
 
@@ -60,7 +68,32 @@ func (hs *HttpsService) ProxyHttpsRequest() error {
 	}
 
 	defer hijackedConn.Close()
-	defer TCPClientConn.Close()
+	return nil
+}
+
+func (hs *HttpsService) SaveReqToDB(request *http.Request) error {
+	requestBody := new(bytes.Buffer)
+	_, err := io.Copy(requestBody, request.Body)
+	if err != nil {
+		return err
+	}
+
+	req := &models.Request{
+		Method:  request.Method,
+		Scheme:  "https",
+		Host:    request.Host,
+		Path:    request.URL.Path,
+		Headers: request.Header,
+		Body:    requestBody.String(),
+	}
+
+	err = hs.crutch.InsertInto(req)
+	if err != nil {
+		return err
+	}
+
+	logrus.Info("RequestId: ", req.Id)
+	hs.HttpsRequest.Body = ioutil.NopCloser(strings.NewReader(req.Body))
 
 	return nil
 }
@@ -137,6 +170,7 @@ func (hs *HttpsService) initializeTCPClient(hijackedConn net.Conn) (*tls.Conn, e
 	}
 
 	hs.HttpsRequest = TCPClientRequest
+	hs.SaveReqToDB(TCPClientRequest)
 
 	return TCPClientConn, nil
 }
@@ -150,9 +184,14 @@ func (hs *HttpsService) initializeTCPServer() (*tls.Conn, error) {
 	return TCPServerConn, nil
 }
 
+func (hs *HttpsService) transfer(destination io.WriteCloser, source io.ReadCloser) {
+	defer destination.Close()
+	defer source.Close()
+	io.Copy(destination, source)
+}
+
 func (hs *HttpsService) doHttpsRequest(TCPClientConn *tls.Conn, TCPServerConn *tls.Conn) error {
-	rawReq, err := httputil.DumpRequest(hs.HttpsRequest, true)
-	_, err = TCPServerConn.Write(rawReq)
+	err := hs.HttpsRequest.Write(TCPServerConn)
 	if err != nil {
 		return err
 	}
@@ -163,14 +202,14 @@ func (hs *HttpsService) doHttpsRequest(TCPClientConn *tls.Conn, TCPServerConn *t
 		return err
 	}
 
-	decodedResponse, err := utils.DecodeResponse(TCPServerResponse)
+	rawResp, err := httputil.DumpResponse(TCPServerResponse, true)
+	_, err = TCPClientConn.Write(rawResp)
 	if err != nil {
 		return err
 	}
-	_, err = TCPClientConn.Write(decodedResponse)
-	if err != nil {
-		return err
-	}
+	go hs.transfer(TCPClientConn, TCPServerConn)
+	go hs.transfer(TCPServerConn, TCPClientConn)
 
+	defer TCPClientConn.Close()
 	return nil
 }

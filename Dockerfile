@@ -41,6 +41,7 @@ ENV REPEATER_PORT=8000
 ENV DB_USER=proxyuser
 ENV DB_NAME=proxydb
 
+COPY /genCerts/ca.crt /usr/local/share/ca-certificates
 COPY /genCerts/ca.crt /etc/ssl/certs/
 RUN apt-get update
 RUN apt-get install -y ca-certificates

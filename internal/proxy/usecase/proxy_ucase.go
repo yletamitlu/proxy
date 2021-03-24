@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
 )
 
 type ProxyUcase struct {
@@ -41,11 +40,6 @@ func (pu *ProxyUcase) HandleHttpRequest(writer http.ResponseWriter, interceptedH
 	decodedResponse, err := utils.DecodeResponse(proxyResponse)
 	if err != nil {
 		return "", err
-	}
-
-	_, err = io.Copy(writer, strings.NewReader(string(decodedResponse)))
-	if err != nil {
-		logrus.Info(err)
 	}
 
 	defer proxyResponse.Body.Close()

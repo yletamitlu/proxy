@@ -3,14 +3,20 @@ package https
 import (
 	"bufio"
 	"bytes"
+	crand "crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"github.com/sirupsen/logrus"
 	"github.com/yletamitlu/proxy/internal/models"
 	"github.com/yletamitlu/proxy/internal/proxy"
 	"io"
 	"io/ioutil"
-	"math/rand"
+	"log"
+	"math/big"
+	mrand "math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -19,6 +25,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type HttpsService struct {
@@ -111,7 +118,7 @@ func (hs *HttpsService) generateCertificate() (tls.Certificate, error) {
 
 	_, errStat := os.Stat(certFilename)
 	if os.IsNotExist(errStat) {
-		genCommand := exec.Command(cmdGenDir+"/gen_cert.sh", hs.scheme, strconv.Itoa(rand.Intn(100000000)))
+		genCommand := exec.Command(cmdGenDir+"/gen_cert.sh", hs.scheme, strconv.Itoa(mrand.Intn(100000000)))
 
 		_, err := genCommand.CombinedOutput()
 		if err != nil {
@@ -176,7 +183,52 @@ func (hs *HttpsService) initializeTCPClient(hijackedConn net.Conn) (*tls.Conn, e
 }
 
 func (hs *HttpsService) initializeTCPServer() (*tls.Conn, error) {
-	TCPServerConn, err := tls.Dial("tcp", hs.interceptedHttpsRequest.Host, hs.config)
+	file, err := os.Open("./genCerts/ca.key")
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	privPem, _ := pem.Decode(b)
+
+	priv, err := x509.ParsePKCS1PrivateKey(privPem.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{hs.scheme},
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(time.Hour * 24 * 180),
+
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	derBytes, err := x509.CreateCertificate(crand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		log.Fatalf("Failed to create certificate: %s", err)
+	}
+
+	caPEM := new(bytes.Buffer)
+	pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: derBytes,
+	})
+	cert, err := tls.X509KeyPair(caPEM.Bytes(), b)
+	conf := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
+	TCPServerConn, err := tls.Dial("tcp", hs.interceptedHttpsRequest.Host, conf)
 	if err != nil {
 		return nil, err
 	}

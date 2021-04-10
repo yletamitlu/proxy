@@ -45,6 +45,18 @@ func NewHttpsService(writer http.ResponseWriter, interceptedHttpsRequest *http.R
 	} else {
 		scheme = requestedUrl.Scheme
 	}
+
+	rootDir, _ := os.Getwd()
+	certsPath := rootDir + "/genCerts/certs"
+
+	_, errStat := os.Stat(certsPath)
+	if os.IsNotExist(errStat) {
+		err := os.MkdirAll(certsPath, 0700)
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+
 	return &HttpsService{
 		proxyWriter:             writer,
 		interceptedHttpsRequest: interceptedHttpsRequest,
